@@ -3,24 +3,13 @@ import { Header } from '@/components/layout/Header';
 import { InventoryTable } from '@/components/inventory/InventoryTable';
 import { InventoryFilters } from '@/components/inventory/InventoryFilters';
 import { ItemFormDialog } from '@/components/inventory/ItemFormDialog';
-import { mockInventoryItems } from '@/data/mockData';
+import { useInventory } from '@/context/InventoryContext';
 import { InventoryItem } from '@/types/inventory';
 import { useToast } from '@/hooks/use-toast';
 
-function getItemStatus(item: Partial<InventoryItem>): InventoryItem['status'] {
-  const qty = item.quantity || 0;
-  const min = item.minQuantity || 0;
-  const max = item.maxQuantity || 100;
-  
-  if (qty === 0) return 'out-of-stock';
-  if (qty < min) return 'low-stock';
-  if (qty > max) return 'overstock';
-  return 'in-stock';
-}
-
 export default function Inventory() {
   const { toast } = useToast();
-  const [items, setItems] = useState<InventoryItem[]>(mockInventoryItems);
+  const { items, addItem, updateItem, deleteItem } = useInventory();
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -45,7 +34,7 @@ export default function Inventory() {
   };
 
   const handleDelete = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+    deleteItem(id);
     toast({
       title: 'Item deleted',
       description: 'The inventory item has been removed.',
@@ -54,31 +43,13 @@ export default function Inventory() {
 
   const handleSave = (data: Partial<InventoryItem>) => {
     if (editingItem) {
-      setItems(prev => prev.map(item => 
-        item.id === editingItem.id 
-          ? { ...item, ...data, status: getItemStatus(data), lastUpdated: new Date() }
-          : item
-      ));
+      updateItem(editingItem.id, data);
       toast({
         title: 'Item updated',
         description: 'The inventory item has been updated successfully.',
       });
     } else {
-      const newItem: InventoryItem = {
-        id: Date.now().toString(),
-        sku: data.sku || '',
-        name: data.name || '',
-        description: data.description || '',
-        category: data.category || '',
-        quantity: data.quantity || 0,
-        minQuantity: data.minQuantity || 0,
-        maxQuantity: data.maxQuantity || 100,
-        binLocation: data.binLocation || '',
-        unitPrice: data.unitPrice || 0,
-        lastUpdated: new Date(),
-        status: getItemStatus(data),
-      };
-      setItems(prev => [newItem, ...prev]);
+      addItem(data);
       toast({
         title: 'Item added',
         description: 'The new inventory item has been created.',

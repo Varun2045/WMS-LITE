@@ -1,24 +1,69 @@
+import { useRef, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, Download, FileSpreadsheet, CheckCircle } from 'lucide-react';
+import { Upload, Download, FileSpreadsheet, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useInventory } from '@/context/InventoryContext';
+import { exportToCSV, downloadTemplate, parseCSV } from '@/utils/csvUtils';
 
 export default function ImportExport() {
   const { toast } = useToast();
+  const { items, importItems } = useInventory();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleExport = () => {
+    setIsExporting(true);
+    setTimeout(() => {
+      exportToCSV(items);
+      setIsExporting(false);
+      toast({
+        title: 'Export complete',
+        description: `Exported ${items.length} inventory items to CSV.`,
+      });
+    }, 500);
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadTemplate();
     toast({
-      title: 'Export started',
-      description: 'Your inventory data is being prepared for download.',
+      title: 'Template downloaded',
+      description: 'Use this template to format your import data.',
     });
   };
 
-  const handleImport = () => {
-    toast({
-      title: 'Import ready',
-      description: 'Select a CSV file to import inventory data.',
-    });
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const parsedItems = parseCSV(text);
+      const count = importItems(parsedItems);
+      setIsImporting(false);
+      toast({
+        title: 'Import complete',
+        description: `Successfully imported ${count} items.`,
+      });
+    };
+    reader.onerror = () => {
+      setIsImporting(false);
+      toast({
+        title: 'Import failed',
+        description: 'Could not read the file. Please try again.',
+        variant: 'destructive',
+      });
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDropZoneClick = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -47,7 +92,7 @@ export default function ImportExport() {
               <div className="rounded-lg bg-muted/50 p-4 space-y-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle className="h-4 w-4 text-success" />
-                  All inventory items with details
+                  {items.length} inventory items with details
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle className="h-4 w-4 text-success" />
@@ -58,8 +103,12 @@ export default function ImportExport() {
                   Status and pricing data
                 </div>
               </div>
-              <Button className="w-full gap-2" onClick={handleExport}>
-                <FileSpreadsheet className="h-4 w-4" />
+              <Button className="w-full gap-2" onClick={handleExport} disabled={isExporting}>
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="h-4 w-4" />
+                )}
                 Export to CSV
               </Button>
             </CardContent>
@@ -79,19 +128,30 @@ export default function ImportExport() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
               <div 
                 className="rounded-lg border-2 border-dashed border-border p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
-                onClick={handleImport}
+                onClick={handleDropZoneClick}
               >
-                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                {isImporting ? (
+                  <Loader2 className="h-8 w-8 text-primary mx-auto mb-2 animate-spin" />
+                ) : (
+                  <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                )}
                 <p className="text-sm font-medium text-foreground">
-                  Drop your CSV file here
+                  {isImporting ? 'Importing...' : 'Drop your CSV file here'}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   or click to browse files
                 </p>
               </div>
-              <Button variant="outline" className="w-full gap-2">
+              <Button variant="outline" className="w-full gap-2" onClick={handleDownloadTemplate}>
                 <FileSpreadsheet className="h-4 w-4" />
                 Download Template
               </Button>
