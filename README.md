@@ -1,3 +1,5 @@
+// URL : https://wms-lite.vercel.app/
+
 # Welcome to your Lovable project
 
 ## Project info
